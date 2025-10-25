@@ -328,7 +328,15 @@ static int fs2_dither(FSBUF *fs, byte *ptr, int nc, int num_rows, int num_cols)
 /***********************************/
 void Resize(int w, int h)
 {
-  RANGE(w,1,maxWIDE);  RANGE(h,1,maxHIGH);
+  /* Only constrain to maxWIDE/maxHIGH if -nolimits is NOT specified */
+  if (!nolimits) {
+    RANGE(w,1,maxWIDE);  RANGE(h,1,maxHIGH);
+  }
+  else {
+    /* With -nolimits, only ensure positive dimensions */
+    if (w < 1) w = 1;
+    if (h < 1) h = 1;
+  }
 
   if (HaveSelection()) DrawSelection(0);  /* turn off old rect */
 
@@ -801,7 +809,7 @@ void UnCrop(void)
 
 
   w = (pWIDE * eWIDE) / cWIDE;   h = (pHIGH * eHIGH) / cHIGH;
-  if (w>maxWIDE || h>maxHIGH) {
+  if (!nolimits && (w>maxWIDE || h>maxHIGH)) {
     /* return to 'normal' size */
     if (pWIDE>maxWIDE || pHIGH>maxHIGH) {
       double r,wr,hr;
@@ -1123,7 +1131,7 @@ void DoCrop(int x, int y, int w, int h)
   eWIDE = (int) (cWIDE * expw);
   eHIGH = (int) (cHIGH * exph);
 
-  if (eWIDE>maxWIDE || eHIGH>maxHIGH) {  /* make 'normal' size */
+  if (!nolimits && (eWIDE>maxWIDE || eHIGH>maxHIGH)) {  /* make 'normal' size */
     if (cWIDE>maxWIDE || cHIGH>maxHIGH) {
       double r,wr,hr;
       wr = ((double) cWIDE) / maxWIDE;
@@ -1708,7 +1716,6 @@ void CreateXImage(void)
     egampic = GammifyPic24(epic, eWIDE, eHIGH);
     if (!egampic) egampic = epic;
   }
-
 
   if (picType == PIC8)
     theImage = Pic8ToXImage(epic,     (u_int) eWIDE, (u_int) eHIGH,
