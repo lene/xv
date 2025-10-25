@@ -1265,7 +1265,10 @@ static void useOtherVisual(XVisualInfo *vinfo, int best)
 
   vrWIDE = dispWIDE  = DisplayWidth(theDisp,theScreen);
   vrHIGH = dispHIGH  = DisplayHeight(theDisp,theScreen);
-  maxWIDE = dispWIDE;  maxHIGH = dispHIGH;
+  /* Don't reset maxWIDE/maxHIGH if -nolimits was specified */
+  if (!nolimits) {
+    maxWIDE = dispWIDE;  maxHIGH = dispHIGH;
+  }
 }
 
 
@@ -3035,7 +3038,8 @@ ms_auto_no:
 
     /* now, just make sure that eWIDE/eHIGH aren't too big... */
     /* shrink eWIDE,eHIGH preserving aspect ratio, if so... */
-    if (eWIDE>maxWIDE || eHIGH>maxHIGH) {
+    /* UNLESS -nolimits is specified, which allows true 1:1 viewing */
+    if (!nolimits && (eWIDE>maxWIDE || eHIGH>maxHIGH)) {
       /* the numbers here can get big.  use floats */
       double r,wr,hr;
 
@@ -4152,8 +4156,17 @@ static void createMainWindow(const char *geom, const char *name)
 
   hints.x = x;                  hints.y = y;
   hints.width = eWIDE;          hints.height = eHIGH;
-  hints.max_width  = maxWIDE;   hints.max_height = maxHIGH;
-  hints.flags |= PSize | PMaxSize;
+  /* Only set max size hints if -nolimits is NOT specified */
+  /* This allows windows larger than screen with -nolimits */
+  if (!nolimits) {
+    hints.max_width  = maxWIDE;   hints.max_height = maxHIGH;
+    hints.flags |= PSize | PMaxSize;
+  }
+  else {
+    /* With -nolimits, set minimum size to image size to force WM to allow it */
+    hints.min_width  = eWIDE;     hints.min_height = eHIGH;
+    hints.flags |= PSize | PMinSize;
+  }
 
   xswa.bit_gravity      = StaticGravity;
   xswa.background_pixmap  = None;
@@ -4180,13 +4193,26 @@ static void createMainWindow(const char *geom, const char *name)
     xwa.width = eWIDE;  xwa.height = eHIGH;
 
     /* try to keep the damned thing on-screen, if possible */
-    if (xwa.x + xwa.width  > vrWIDE) xwa.x = vrWIDE - xwa.width;
-    if (xwa.y + xwa.height > vrHIGH) xwa.y = vrHIGH - xwa.height;
-    if (xwa.x < 0) xwa.x = 0;
-    if (xwa.y < 0) xwa.y = 0;
+    /* UNLESS -nolimits is specified, then allow off-screen windows */
+    if (!nolimits) {
+      if (xwa.x + xwa.width  > vrWIDE) xwa.x = vrWIDE - xwa.width;
+      if (xwa.y + xwa.height > vrHIGH) xwa.y = vrHIGH - xwa.height;
+      if (xwa.x < 0) xwa.x = 0;
+      if (xwa.y < 0) xwa.y = 0;
+    }
 
     SetWindowPos(&xwa);
-    hints.flags = PSize | PMaxSize;
+    /* Also explicitly resize the window - SetWindowPos only sets position! */
+    XResizeWindow(theDisp, mainW, (u_int) xwa.width, (u_int) xwa.height);
+    /* Don't re-add PMaxSize if -nolimits is active! */
+    if (!nolimits) {
+      hints.flags = PSize | PMaxSize;
+    }
+    else {
+      /* With -nolimits, use PMinSize to force WM to allow full image size */
+      hints.min_width  = eWIDE;     hints.min_height = eHIGH;
+      hints.flags = PSize | PMinSize;
+    }
   }
 
   else {
@@ -4325,18 +4351,21 @@ void FixAspect(int grow, int *w, int *h)
 
 
   /* shrink to fit screen without changing aspect ratio */
-  if (*w>maxWIDE) {
-    int i;
-    a = (float) *w / maxWIDE;
-    *w = maxWIDE;
-    i = (int) (*h / a + .5);        /* avoid freaking some optimizers */
-    *h = i;
-  }
+  /* UNLESS -nolimits is specified */
+  if (!nolimits) {
+    if (*w>maxWIDE) {
+      int i;
+      a = (float) *w / maxWIDE;
+      *w = maxWIDE;
+      i = (int) (*h / a + .5);        /* avoid freaking some optimizers */
+      *h = i;
+    }
 
-  if (*h>maxHIGH) {
-    a = (float) *h / maxHIGH;
-    *h = maxHIGH;
-    *w = (int) (*w / a + .5);
+    if (*h>maxHIGH) {
+      a = (float) *h / maxHIGH;
+      *h = maxHIGH;
+      *w = (int) (*w / a + .5);
+    }
   }
 
   if (*w < 1) *w = 1;
@@ -4791,7 +4820,9 @@ void HandleDispMode(void)
     rootMode = dispMode - RMB_ROOT;
     ew = eWIDE;  eh = eHIGH;
 
-    RANGE(ew,1,maxWIDE);  RANGE(eh,1,maxHIGH);
+    if (!nolimits) {
+      RANGE(ew,1,maxWIDE);  RANGE(eh,1,maxHIGH);
+    }
 
     if (rootMode == RM_TILE || rootMode == RM_IMIRROR) {
       i = (dispWIDE + ew-1) / ew;   ew = (dispWIDE + i-1) / i;

@@ -638,6 +638,8 @@ int HandleEvent(XEvent *event, int *donep)
 	  else {
 	    if (DEBUG) fprintf(stderr,"Do full redraw\n");
 
+	    /* Always resize the image to match window size */
+	    /* -nolimits only affects initial window creation, not ongoing resizing */
 	    Resize(cevt->width, cevt->height);
 
 	    /* eat any pending expose events and do a full redraw */
@@ -961,7 +963,10 @@ int HandleEvent(XEvent *event, int *donep)
 
     dispWIDE = DisplayWidth(theDisp, screen);
     dispHIGH = DisplayHeight(theDisp, screen);
-    maxWIDE = vrWIDE = dispWIDE;  maxHIGH = vrHIGH = dispHIGH;
+    /* Don't reset maxWIDE/maxHIGH if -nolimits was specified */
+    if (!nolimits) {
+      maxWIDE = vrWIDE = dispWIDE;  maxHIGH = vrHIGH = dispHIGH;
+    }
     HandleDispMode();
   }
 #endif
@@ -1156,7 +1161,7 @@ static void SelectSizeMB(int i)
 
   switch (i) {
   case SZMB_NORM:
-    if (cWIDE>maxWIDE || cHIGH>maxHIGH) {
+    if (!nolimits && (cWIDE>maxWIDE || cHIGH>maxHIGH)) {
       double r,wr,hr;
       wr = ((double) cWIDE) / maxWIDE;
       hr = ((double) cHIGH) / maxHIGH;
@@ -1200,7 +1205,7 @@ static void SelectSizeMB(int i)
 
   case SZMB_4BY3:
     w = eWIDE;  h = (w * 3) / 4;
-    if (h>maxHIGH) { h = eHIGH;  w = (h*4)/3; }
+    if (!nolimits && h>maxHIGH) { h = eHIGH;  w = (h*4)/3; }
     WResize(w,h);
     break;
 
@@ -2298,7 +2303,13 @@ void WResize(int w, int h)
 {
   XWindowAttributes xwa;
 
-  RANGE(w,1,maxWIDE);  RANGE(h,1,maxHIGH);
+  if (!nolimits) {
+    RANGE(w,1,maxWIDE);  RANGE(h,1,maxHIGH);
+  }
+  else {
+    if (w < 1) w = 1;
+    if (h < 1) h = 1;
+  }
 
   if (useroot) {
     Resize(w,h);
@@ -2321,6 +2332,20 @@ void WResize(int w, int h)
 
   /* resize the window */
   xwa.width = w;  xwa.height = h;
+
+  /* With -nolimits, update PMinSize hint to match new size */
+  /* This allows user to resize via xv commands, but not via WM/mouse */
+  if (nolimits) {
+    XSizeHints hints;
+    hints.flags = PSize | PMinSize;
+    hints.x = xwa.x;
+    hints.y = xwa.y;
+    hints.width = w;
+    hints.height = h;
+    hints.min_width = w;
+    hints.min_height = h;
+    XSetWMNormalHints(theDisp, mainW, &hints);
+  }
 
   SetWindowPos(&xwa);
 }
@@ -2365,7 +2390,7 @@ void WRotate(void)
     { int ew, eh;
       ew = eWIDE;  eh = eHIGH;
       WResize(eWIDE, eHIGH);
-      if (ew>maxWIDE || eh>maxHIGH) {   /* rotated pic too big, scale down */
+      if (!nolimits && (ew>maxWIDE || eh>maxHIGH)) {   /* rotated pic too big, scale down */
 	double r,wr,hr;
 	wr = ((double) ew) / maxWIDE;
 	hr = ((double) eh) / maxHIGH;
@@ -2405,6 +2430,20 @@ void WCrop(int w, int h, int dx, int dy)
 
     xwa.x += ex;  xwa.y += ey;
     xwa.width = w;  xwa.height = h;
+
+    /* With -nolimits, update PMinSize hint to match new cropped size */
+    if (nolimits) {
+      XSizeHints hints;
+      hints.flags = PSize | PMinSize;
+      hints.x = xwa.x;
+      hints.y = xwa.y;
+      hints.width = w;
+      hints.height = h;
+      hints.min_width = w;
+      hints.min_height = h;
+      XSetWMNormalHints(theDisp, mainW, &hints);
+    }
+
     GenExpose(mainW, 0, 0, (u_int) eWIDE, (u_int) eHIGH);
     SetWindowPos(&xwa);
   }
@@ -2444,6 +2483,19 @@ void WUnCrop(void)
     if (xwa.y < 0) xwa.y = 0;
 
     xwa.width = w;  xwa.height = h;
+
+    /* With -nolimits, update PMinSize hint when uncropping */
+    if (nolimits) {
+      XSizeHints hints;
+      hints.flags = PSize | PMinSize;
+      hints.x = xwa.x;
+      hints.y = xwa.y;
+      hints.width = w;
+      hints.height = h;
+      hints.min_width = w;
+      hints.min_height = h;
+      XSetWMNormalHints(theDisp, mainW, &hints);
+    }
 
     if (!useroot) {
       SetWindowPos(&xwa);
