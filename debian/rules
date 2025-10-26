@@ -1,0 +1,19 @@
+#!/usr/bin/make -f
+# -*- makefile -*-
+
+# Uncomment this to turn on verbose mode.
+#export DH_VERBOSE=1
+
+# Use dh with CMake build system
+%:
+	dh $@ --buildsystem=cmake
+
+# Override CMake configuration to set install prefix
+override_dh_auto_configure:
+	dh_auto_configure -- \
+		-DCMAKE_INSTALL_PREFIX=/usr \
+		-DCMAKE_BUILD_TYPE=Release
+
+# Optional: run tests if they exist
+# override_dh_auto_test:
+#	dh_auto_test || true

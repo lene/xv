@@ -1,0 +1,21 @@
+xv (6.0.4-1~noble) noble; urgency=medium
+
+  * New upstream version 6.0.4 from jasper-software/xv
+  * Migrated to jasper-software/xv fork (actively maintained)
+  * Updated for Ubuntu 24.04 (Noble Numbat)
+  * Switched to CMake build system
+  * Uses modern system libraries (libpng 1.6, zlib 1.3)
+  * Removed static linking of old zlib/libpng
+  * Added support for: PNG, JPEG, TIFF, XRandR
+  * Fixed libpng 1.5+ compatibility issues
+  * Added HiDPI support
+  * Fixed JPEG crash bugs
+  * Updated dependencies to current Ubuntu packages
+
+ -- Lene Preuss <lene.preuss@gmail.com>  Thu, 24 Oct 2025 18:30:00 +0000
+
+xv (0.1.0-1) jammy; urgency=low
+
+  * set up to run in GitLab CI with binary as release artifact
+
+ -- Lene Preuss <lene.preuss@gmail.com>  Sat, 04 Aug 2023 21:55:00 -0100
