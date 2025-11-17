@@ -1035,7 +1035,9 @@ int main(int argc, char **argv)
 
   /* PostScript dialog is now created on-demand when saving to PS format
    * (lazy creation) to reduce X window allocation.
-   * Preview and compression settings are initialized in CreatePSD() */
+   * Initialize preview and compression settings even though dialog not created yet */
+  encapsCB.val = preview;
+  pscompCB.val = pscomp;
 
 
   /* Format-specific save dialogs are now created on-demand when saving
