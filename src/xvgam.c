@@ -935,6 +935,9 @@ static void selectCell(int cellno, int sel)
 {
   int x,y;
 
+  /* Guard against calling before gamma window created */
+  if (gamW == None) return;
+
   if (cellno >= numcols) return;
 
   x = CMAPX + (cellno%16)*CMAPCW;
