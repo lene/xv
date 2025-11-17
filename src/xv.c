@@ -1005,15 +1005,17 @@ int main(int argc, char **argv)
   browseCB.val = browseMode;
   savenormCB.val = savenorm;
 
-  /* Save gamma window parameters for lazy creation, but don't create yet */
-  SaveGamParams(gamgeom, (gamset) ? gamval : -1.0,
+  /* TEMPORARY: Create gamma window eagerly until lazy creation fully debugged
+   * TODO: This reverts gamma window to eager creation to allow testing of
+   * other optimizations (browser windows, dialogs, menu popups). Once those
+   * are verified working, we can fix remaining gamma lazy creation issues. */
+  CreateGam(gamgeom, (gamset) ? gamval : -1.0,
 	    (cgamset) ? rgamval : -1.0,
 	    (cgamset) ? ggamval : -1.0,
 	    (cgamset) ? bgamval : -1.0,
 	    preset);
 
-  /* Window will be created on first use if gmap is set */
-  if (gmap) GamBox(1);     /* map it (creates window on first open) */
+  if (gmap) GamBox(1);     /* map it */
 
 
 
