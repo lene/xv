@@ -855,29 +855,32 @@ void NewCMap(void)
 
   int i;
 
-  XClearArea(theDisp, cmapF, CMAPX, CMAPY, CMAPW+1, CMAPH+1, False);
-  for (i=0; i<256; i++) cellgroup[i] = 0;
-  curgroup = maxgroup = 0;
+  /* Only update UI if gamma window has been created (lazy creation) */
+  if (gamW != None) {
+    XClearArea(theDisp, cmapF, CMAPX, CMAPY, CMAPW+1, CMAPH+1, False);
+    for (i=0; i<256; i++) cellgroup[i] = 0;
+    curgroup = maxgroup = 0;
 
-  BTSetActive(&gbut[G_BCOLUNDO],0);
+    BTSetActive(&gbut[G_BCOLUNDO],0);
 
-  if (resetCB.val) {            /* auto-reset gamma controls */
-    i = autoCB.val;
-    if (i) autoCB.val = 0;      /* must NOT apply changes! */
-    gamstate2ctrls(defLoadState);
-    autoCB.val = i;
+    if (resetCB.val) {            /* auto-reset gamma controls */
+      i = autoCB.val;
+      if (i) autoCB.val = 0;      /* must NOT apply changes! */
+      gamstate2ctrls(defLoadState);
+      autoCB.val = i;
+    }
+
+    /* disable/enable things if we're in PIC24 or PIC8 mode */
+    BTSetActive(&gbut[G_BCOLREV], (picType == PIC8) ? 1 : 0);
+    BTSetActive(&gbut[G_BHSVRGB], (picType == PIC8) ? 1 : 0);
+    BTSetActive(&gbut[G_BMONO],   (picType == PIC8) ? 1 : 0);
+    BTSetActive(&gbut[G_BRV],     (picType == PIC8) ? 1 : 0);
+    BTSetActive(&gbut[G_BRNDCOL], (picType == PIC8) ? 1 : 0);
+
+    DSetActive(&rhDial, (picType == PIC8) ? 1 : 0);
+    DSetActive(&gsDial, (picType == PIC8) ? 1 : 0);
+    DSetActive(&bvDial, (picType == PIC8) ? 1 : 0);
   }
-
-  /* disable/enable things if we're in PIC24 or PIC8 mode */
-  BTSetActive(&gbut[G_BCOLREV], (picType == PIC8) ? 1 : 0);
-  BTSetActive(&gbut[G_BHSVRGB], (picType == PIC8) ? 1 : 0);
-  BTSetActive(&gbut[G_BMONO],   (picType == PIC8) ? 1 : 0);
-  BTSetActive(&gbut[G_BRV],     (picType == PIC8) ? 1 : 0);
-  BTSetActive(&gbut[G_BRNDCOL], (picType == PIC8) ? 1 : 0);
-
-  DSetActive(&rhDial, (picType == PIC8) ? 1 : 0);
-  DSetActive(&gsDial, (picType == PIC8) ? 1 : 0);
-  DSetActive(&bvDial, (picType == PIC8) ? 1 : 0);
 }
 
 
@@ -885,6 +888,9 @@ void NewCMap(void)
 void RedrawCMap(void)
 {
   int i;
+
+  /* Only redraw if gamma window has been created (lazy creation) */
+  if (gamW == None) return;
 
   CBSetActive(&dragCB, (allocMode == AM_READWRITE));
 
