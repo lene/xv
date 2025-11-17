@@ -1005,17 +1005,11 @@ int main(int argc, char **argv)
   browseCB.val = browseMode;
   savenormCB.val = savenorm;
 
-  /* TEMPORARY: Create gamma window eagerly until lazy creation fully debugged
-   * TODO: This reverts gamma window to eager creation to allow testing of
-   * other optimizations (browser windows, dialogs, menu popups). Once those
-   * are verified working, we can fix remaining gamma lazy creation issues. */
-  CreateGam(gamgeom, (gamset) ? gamval : -1.0,
-	    (cgamset) ? rgamval : -1.0,
-	    (cgamset) ? ggamval : -1.0,
-	    (cgamset) ? bgamval : -1.0,
-	    preset);
+  /* Phase 2: Gamma window now uses lazy creation - created on first use
+   * Parameters saved via SaveGamParams(), window created when GamBox(1) called
+   * or when user opens gamma dialog from menu. See GamBox() in xvgam.c */
 
-  if (gmap) GamBox(1);     /* map it */
+  if (gmap) GamBox(1);     /* open gamma window if requested via -gam flag */
 
 
 
