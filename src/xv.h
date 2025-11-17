@@ -1837,6 +1837,8 @@ int  xvErrorHandler        PARM((Display *, XErrorEvent *));
 
 
 /**************************** XVGAM.C **************************/
+void SaveGamParams         PARM((const char *, double, double, double, double,
+				 int));
 void CreateGam             PARM((const char *, double, double, double, double,
 				 int));
 int  GamCheckEvent         PARM((XEvent *));

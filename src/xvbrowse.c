@@ -383,20 +383,22 @@ static void recIconVisible   PARM((char *, int));
 static void restIconVisible  PARM((BROWINFO *));
 
 static void clipChanges      PARM((BROWINFO *));
+static void createBrowserWindow PARM((BROWINFO *, int));
 
 
+
+/* static state for deferred browser window creation */
+static int browse_gx, browse_gy, browse_gw, browse_gh, browse_gset;
+static int browse_userspec;
+static int browse_icons_created = 0;
 
 /***************************************************************/
 void CreateBrowse(const char *geom, int userspec, const char *fgstr, const char *bgstr, const char *histr, const char *lostr)
 {
   int                   i;
-  XSetWindowAttributes  xswa;
   BROWINFO             *br;
-  XColor                ecdef, cursfg, cursbg;
-  Pixmap                mcpix, ccpix, dcpix, fcmpix;
-  int                   gx, gy, gw, gh, gset, gx1, gy1;
+  XColor                ecdef;
   unsigned int          uw, uh;
-  char                  wgeom[64];
 
   if (!geom) {
     geom = "";
@@ -435,117 +437,18 @@ void CreateBrowse(const char *geom, int userspec, const char *fgstr, const char 
     browfg = infofg;  browbg = infobg;  browhi = hicol;  browlo = locol;
   }
 
+  /* Save geometry parameters for deferred window creation */
+  browse_gset = XParseGeometry(geom, &browse_gx, &browse_gy, &uw, &uh);
+  browse_gw = (int) uw;  browse_gh = (int) uh;
+  browse_userspec = userspec;
 
-
-  gset = XParseGeometry(geom, &gx, &gy, &uw, &uh);
-  gw = (int) uw;  gh = (int) uh;
-
-  /* creates *all* schnauzer windows at once */
-
-  for (i=0; i<MAXBRWIN; i++) binfo[i].win = (Window) None;
-
+  /* Initialize browser info structures without creating windows.
+   * Window creation is deferred until OpenBrowse() is called. */
   for (i=0; i<MAXBRWIN; i++) {
-    char wname[64];
-
-    /* create a slightly offset geometry, so the windows stack nicely */
-    if ((gset & XValue) && (gset & YValue)) {
-      if (gset & XNegative) gx1 = gx - i * 20;
-                       else gx1 = gx + i * 20;
-
-      if (gset & YNegative) gy1 = gy - i * 20;
-	               else gy1 = gy + i * 20;
-
-      if ((gset & WidthValue) && (gset & HeightValue))
-	sprintf(wgeom, "%dx%d%s%d%s%d", gw, gh,
-		(gset & XNegative) ? "-" : "+", abs(gx1),
-		(gset & YNegative) ? "-" : "+", abs(gy1));
-      else
-	sprintf(wgeom, "%s%d%s%d",
-		(gset & XNegative) ? "-" : "+", abs(gx1),
-		(gset & YNegative) ? "-" : "+", abs(gy1));
-    }
-    else strcpy(wgeom, geom);
-
     br = &binfo[i];
-
-    if (i) sprintf(wname, "xv visual schnauzer (%d)", i);
-      else sprintf(wname, "xv visual schnauzer");
-
-    br->win = CreateFlexWindow(wname, "XVschnauze", wgeom,
-                              DEF_BROWWIDE, DEF_BROWHIGH, browfg, browbg,
-                              TRUE, FALSE, userspec);
-    if (!br->win) FatalError("can't create schnauzer window!");
-    SetMinSizeWindow(br->win, MIN_BROWWIDE, MIN_BROWHIGH);
-
-    haveWindows = 1;
+    br->win = (Window) None;
+    br->iconW = (Window) None;
     br->vis = br->wasvis = 0;
-
-    if (browPerfect && browCmap) {
-      xswa.colormap = browCmap;
-      XChangeWindowAttributes(theDisp, br->win, CWColormap, &xswa);
-    }
-
-    if (ctrlColor) XSetWindowBackground(theDisp, br->win, browlo);
-              else XSetWindowBackgroundPixmap(theDisp, br->win, grayTile);
-
-    /* note: everything is sized and positioned in ResizeBrowse() */
-
-    br->iconW = XCreateSimpleWindow(theDisp, br->win, 1,1, 100,100,
-				   1, browfg, browbg);
-    if (!br->iconW) FatalError("can't create schnauzer icon window!");
-
-    SCCreate(&br->scrl, br->win, 0,0, 1,100, 0,0,0,0,
-	     browfg, browbg, browhi, browlo, drawIconWin);
-
-#ifdef BACKING_STORE
-    xswa.backing_store = WhenMapped;
-    XChangeWindowAttributes(theDisp, br->iconW, CWBackingStore, &xswa);
-#endif
-
-    XSelectInput(theDisp, br->iconW, ExposureMask | ButtonPressMask);
-
-
-
-    BTCreate(&(br->but[BR_CHDIR]), br->win, 0,0,BUTTW,BUTTH,
-	     "Change Dir",browfg,browbg,browhi,browlo);
-    BTCreate(&(br->but[BR_DELETE]), br->win, 0,0,BUTTW,BUTTH,
-	     "Delete",browfg,browbg,browhi,browlo);
-    BTCreate(&(br->but[BR_MKDIR]), br->win, 0,0,BUTTW,BUTTH,
-	     "New Dir",browfg,browbg,browhi,browlo);
-    BTCreate(&(br->but[BR_RENAME]), br->win, 0,0,BUTTW,BUTTH,
-	     "Rename",browfg,browbg,browhi,browlo);
-    BTCreate(&(br->but[BR_RESCAN]), br->win, 0,0,BUTTW,BUTTH,
-	     "ReScan",browfg,browbg,browhi,browlo);
-    BTCreate(&(br->but[BR_UPDATE]), br->win, 0,0,BUTTW,BUTTH,
-	     "Update",browfg,browbg,browhi,browlo);
-    BTCreate(&(br->but[BR_NEWWIN]), br->win, 0,0,BUTTW,BUTTH,
-	     "Open Win",browfg,browbg,browhi,browlo);
-    BTCreate(&(br->but[BR_GENICON]),br->win, 0,0,BUTTW,BUTTH,
-	     "GenIcon",browfg,browbg,browhi,browlo);
-    BTCreate(&(br->but[BR_SELALL]), br->win, 0,0,BUTTW,BUTTH,
-	     "Select All",browfg,browbg,browhi,browlo);
-    BTCreate(&(br->but[BR_TEXTVIEW]), br->win, 0,0,BUTTW,BUTTH,
-	     "Text view",browfg,browbg,browhi,browlo);
-    BTCreate(&(br->but[BR_RECURSUP]), br->win, 0,0,BUTTW,BUTTH,
-	     "RecursUpd",browfg,browbg,browhi,browlo);
-    BTCreate(&(br->but[BR_QUIT]), br->win, 0,0,BUTTW,BUTTH,
-	     "Quit xv",browfg,browbg,browhi,browlo);
-    BTCreate(&(br->but[BR_CLOSE]), br->win, 0,0,BUTTW,BUTTH,
-	     "Close",browfg,browbg,browhi,browlo);
-    BTCreate(&(br->but[BR_CLIPBRD]), br->win, 0,0,BUTTW,BUTTH,
-	     "Clipboard",browfg,browbg,browhi,browlo);
-
-    XMapSubwindows(theDisp, br->win);
-
-    MBCreate(&(br->dirMB), br->win, 0,0,100,19*dpiMult, NULL,NULL,0,
-	     browfg,browbg,browhi,browlo);
-
-    MBCreate(&(br->cmdMB), br->win, 0,0,160*dpiMult,19*dpiMult, "Misc. Commands",
-	     cmdMList, BR_NCMDS, browfg,browbg,browhi,browlo);
-
-    br->showhidden   = 0;
-    br->cmdMB.list[BR_HIDDEN]   = showHstr;
-
     br->numbutshown  = 0;
     br->numlit       = 0;
     br->bfList       = NULL;
@@ -553,112 +456,224 @@ void CreateBrowse(const char *geom, int userspec, const char *fgstr, const char 
     br->dispstr[0]   = '\0';
     br->ndirs        = 0;
     sprintf(br->path, BOGUSPATH);
-
     br->lastIconClicked = -1;
     br->lastClickTime = 0;
   }
 
-
-  /* create built-in icon pixmaps */
-  bfIcons[BF_FILE]=MakePix1(br->win,br_file_bits,br_file_width,br_file_height);
-  bfIcons[BF_DIR] =MakePix1(br->win,br_dir_bits, br_dir_width, br_dir_height);
-  bfIcons[BF_EXE] =MakePix1(br->win,br_exe_bits, br_exe_width, br_exe_height);
-  bfIcons[BF_CHR] =MakePix1(br->win,br_chr_bits, br_chr_width, br_chr_height);
-  bfIcons[BF_BLK] =MakePix1(br->win,br_blk_bits, br_blk_width, br_blk_height);
-  bfIcons[BF_SOCK]=MakePix1(br->win,br_sock_bits,br_sock_width,br_sock_height);
-  bfIcons[BF_FIFO]=MakePix1(br->win,br_fifo_bits,br_fifo_width,br_fifo_height);
-
-  bfIcons[BF_ERROR]   = MakePix1(br->win, br_error_bits,
-			       br_error_width,     br_error_height);
-
-/* bfIcons[BF_UNKNOWN] = MakePix1(br->win, br_unknown_bits,
-                                br_unknown_width, br_unknown_height); */
-  bfIcons[BF_UNKNOWN] = bfIcons[BF_FILE];
-
-  bfIcons[BF_COMPRESS] = MakePix1(br->win, br_cmpres_bits,
-				  br_cmpres_width, br_cmpres_height);
-  bfIcons[BF_BZIP2]    = MakePix1(br->win, br_bzip2_bits,
-				  br_bzip2_width, br_bzip2_height);
-
-  bfIcons[BF_BMP] =MakePix1(br->win,br_bmp_bits, br_bmp_width, br_bmp_height);
-  bfIcons[BF_FITS]=MakePix1(br->win,br_fits_bits,br_fits_width,br_fits_height);
-  bfIcons[BF_GIF] =MakePix1(br->win,br_gif_bits, br_gif_width, br_gif_height);
-  bfIcons[BF_IFF] =MakePix1(br->win,br_iff_bits, br_iff_width, br_iff_height);
-  bfIcons[BF_IRIS]=MakePix1(br->win,br_iris_bits,br_iris_width,br_iris_height);
-  bfIcons[BF_JFIF]=MakePix1(br->win,br_jfif_bits,br_jfif_width,br_jfif_height);
-  bfIcons[BF_JP2] =MakePix1(br->win,br_jp2_bits, br_jp2_width, br_jp2_height);
-  bfIcons[BF_JPC] =MakePix1(br->win,br_jpc_bits, br_jpc_width, br_jpc_height);
-  bfIcons[BF_MAG] =MakePix1(br->win,br_mag_bits, br_mag_width, br_mag_height);
-  bfIcons[BF_MAKI]=MakePix1(br->win,br_maki_bits,br_maki_width,br_maki_height);
-  bfIcons[BF_PBM] =MakePix1(br->win,br_pbm_bits, br_pbm_width, br_pbm_height);
-  bfIcons[BF_PCD] =MakePix1(br->win,br_pcd_bits, br_pcd_width, br_pcd_height);
-  bfIcons[BF_PCX] =MakePix1(br->win,br_pcx_bits, br_pcx_width, br_pcx_height);
-  bfIcons[BF_PDS] =MakePix1(br->win,br_pds_bits, br_pds_width, br_pds_height);
-  bfIcons[BF_PIC2]=MakePix1(br->win,br_pic2_bits,br_pic2_width,br_pic2_height);
-  bfIcons[BF_PIC] =MakePix1(br->win,br_pic_bits, br_pic_width, br_pic_height);
-  bfIcons[BF_PI]  =MakePix1(br->win,br_pi_bits,  br_pi_width,  br_pi_height);
-  bfIcons[BF_PM]  =MakePix1(br->win,br_pm_bits,  br_pm_width,  br_pm_height);
-  bfIcons[BF_PNG] =MakePix1(br->win,br_png_bits, br_png_width, br_png_height);
-  bfIcons[BF_PS]  =MakePix1(br->win,br_ps_bits,  br_ps_width,  br_ps_height);
-  bfIcons[BF_TGA] =MakePix1(br->win,br_tga_bits, br_tga_width, br_tga_height);
-  bfIcons[BF_TIFF]=MakePix1(br->win,br_tiff_bits,br_tiff_width,br_tiff_height);
-  bfIcons[BF_WEBP]=MakePix1(br->win,br_webp_bits,br_webp_width,br_webp_height);
-  bfIcons[BF_XBM] =MakePix1(br->win,br_xbm_bits, br_xbm_width, br_xbm_height);
-  bfIcons[BF_XPM] =MakePix1(br->win,br_xpm_bits, br_xpm_width, br_xpm_height);
-  bfIcons[BF_XWD] =MakePix1(br->win,br_xwd_bits, br_xwd_width, br_xwd_height);
-  bfIcons[BF_ZX]  =MakePix1(br->win,br_zx_bits,  br_zx_width,  br_zx_height);
-
-  bfIcons[BF_SUNRAS]  = MakePix1(br->win, br_sunras_bits,
-				 br_sunras_width, br_sunras_height);
-  bfIcons[BF_UTAHRLE] = MakePix1(br->win, br_utahrle_bits,
-				 br_utahrle_width, br_utahrle_height);
-  bfIcons[BF_MGCSFX]  = MakePix1(br->win, br_mgcsfx_bits,
-				 br_mgcsfx_width, br_mgcsfx_height);
-
-
-  /* check that they all got built */
-  for (i=0; i<BF_MAX && bfIcons[i]; i++);
-  if (i<BF_MAX)
-    FatalError("unable to create all built-in icons for schnauzer");
-
-  for (i=0; i<MAXBRWIN; i++) {
-    resizeBrowse(&binfo[i], DEF_BROWWIDE, DEF_BROWHIGH);
-
-    XSelectInput(theDisp, binfo[i].win, ExposureMask | ButtonPressMask |
-		 KeyPressMask | StructureNotifyMask);
-  }
-
-
-  trashPix = MakePix1(br->win, br_trash_bits, br_trash_width, br_trash_height);
-  if (!trashPix)
-    FatalError("unable to create all built-in icons for schnauzer");
-
-
-  /* create movecurs and copycurs cursors */
-  mcpix = MakePix1(rootW, filecurs_bits,  filecurs_width,  filecurs_height);
-  ccpix = MakePix1(rootW, fileccurs_bits, fileccurs_width, fileccurs_height);
-  dcpix = MakePix1(rootW, fdcurs_bits,    fdcurs_width,    fdcurs_height);
-  fcmpix= MakePix1(rootW, filecursm_bits, filecursm_width, filecursm_height);
-
-  if (mcpix && ccpix && fcmpix && dcpix) {
-    cursfg.red = cursfg.green = cursfg.blue = 0;
-    cursbg.red = cursbg.green = cursbg.blue = 0xffff;
-
-    movecurs = XCreatePixmapCursor(theDisp,mcpix,fcmpix,&cursfg,&cursbg,13,13);
-    copycurs = XCreatePixmapCursor(theDisp,ccpix,fcmpix,&cursfg,&cursbg,13,13);
-    delcurs  = XCreatePixmapCursor(theDisp,dcpix,fcmpix,&cursbg,&cursfg,13,13);
-    if (!movecurs || !copycurs || !delcurs)
-      FatalError("unable to create schnauzer cursors...");
-  }
-  else FatalError("unable to create schnauzer cursors...");
-
-  XFreePixmap(theDisp, mcpix);
-  XFreePixmap(theDisp, ccpix);
-  XFreePixmap(theDisp, dcpix);
-  XFreePixmap(theDisp, fcmpix);
-
-
+  /* Icon pixmaps and cursors will be created when first browser window is created */
   hasBeenSized = 1;  /* we can now start looking at browse events */
+}
+
+
+/***************************************************************/
+static void createBrowserWindow(BROWINFO *br, int index)
+{
+  /* Creates the X windows and widgets for a single browser instance.
+   * Called on-demand from OpenBrowse() the first time a browser is opened.
+   * 'index' is the browser number (0 to MAXBRWIN-1) */
+
+  XSetWindowAttributes xswa;
+  XColor cursfg, cursbg;
+  Pixmap mcpix, ccpix, dcpix, fcmpix;
+  char wgeom[64], wname[64];
+  int gx1, gy1, i;
+
+  /* Don't create if already exists */
+  if (br->win != None) return;
+
+  /* Compute geometry for this browser (with offset for stacking) */
+  if ((browse_gset & XValue) && (browse_gset & YValue)) {
+    if (browse_gset & XNegative) gx1 = browse_gx - index * 20;
+                       else gx1 = browse_gx + index * 20;
+
+    if (browse_gset & YNegative) gy1 = browse_gy - index * 20;
+	               else gy1 = browse_gy + index * 20;
+
+    if ((browse_gset & WidthValue) && (browse_gset & HeightValue))
+      sprintf(wgeom, "%dx%d%s%d%s%d", browse_gw, browse_gh,
+	      (browse_gset & XNegative) ? "-" : "+", abs(gx1),
+	      (browse_gset & YNegative) ? "-" : "+", abs(gy1));
+    else
+      sprintf(wgeom, "%s%d%s%d",
+	      (browse_gset & XNegative) ? "-" : "+", abs(gx1),
+	      (browse_gset & YNegative) ? "-" : "+", abs(gy1));
+  }
+  else wgeom[0] = '\0';
+
+  /* Create main window */
+  if (index) sprintf(wname, "xv visual schnauzer (%d)", index);
+    else sprintf(wname, "xv visual schnauzer");
+
+  br->win = CreateFlexWindow(wname, "XVschnauze", wgeom,
+                            DEF_BROWWIDE, DEF_BROWHIGH, browfg, browbg,
+                            TRUE, FALSE, browse_userspec);
+  if (!br->win) FatalError("can't create schnauzer window!");
+  SetMinSizeWindow(br->win, MIN_BROWWIDE, MIN_BROWHIGH);
+
+  haveWindows = 1;
+
+  if (browPerfect && browCmap) {
+    xswa.colormap = browCmap;
+    XChangeWindowAttributes(theDisp, br->win, CWColormap, &xswa);
+  }
+
+  if (ctrlColor) XSetWindowBackground(theDisp, br->win, browlo);
+            else XSetWindowBackgroundPixmap(theDisp, br->win, grayTile);
+
+  /* Create icon window */
+  br->iconW = XCreateSimpleWindow(theDisp, br->win, 1,1, 100,100,
+			         1, browfg, browbg);
+  if (!br->iconW) FatalError("can't create schnauzer icon window!");
+
+  /* Create scrollbar */
+  SCCreate(&br->scrl, br->win, 0,0, 1,100, 0,0,0,0,
+	   browfg, browbg, browhi, browlo, drawIconWin);
+
+#ifdef BACKING_STORE
+  xswa.backing_store = WhenMapped;
+  XChangeWindowAttributes(theDisp, br->iconW, CWBackingStore, &xswa);
+#endif
+
+  XSelectInput(theDisp, br->iconW, ExposureMask | ButtonPressMask);
+
+  /* Create buttons (these don't create windows, just draw structures) */
+  BTCreate(&(br->but[BR_CHDIR]), br->win, 0,0,BUTTW,BUTTH,
+	   "Change Dir",browfg,browbg,browhi,browlo);
+  BTCreate(&(br->but[BR_DELETE]), br->win, 0,0,BUTTW,BUTTH,
+	   "Delete",browfg,browbg,browhi,browlo);
+  BTCreate(&(br->but[BR_MKDIR]), br->win, 0,0,BUTTW,BUTTH,
+	   "New Dir",browfg,browbg,browhi,browlo);
+  BTCreate(&(br->but[BR_RENAME]), br->win, 0,0,BUTTW,BUTTH,
+	   "Rename",browfg,browbg,browhi,browlo);
+  BTCreate(&(br->but[BR_RESCAN]), br->win, 0,0,BUTTW,BUTTH,
+	   "ReScan",browfg,browbg,browhi,browlo);
+  BTCreate(&(br->but[BR_UPDATE]), br->win, 0,0,BUTTW,BUTTH,
+	   "Update",browfg,browbg,browhi,browlo);
+  BTCreate(&(br->but[BR_NEWWIN]), br->win, 0,0,BUTTW,BUTTH,
+	   "Open Win",browfg,browbg,browhi,browlo);
+  BTCreate(&(br->but[BR_GENICON]),br->win, 0,0,BUTTW,BUTTH,
+	   "GenIcon",browfg,browbg,browhi,browlo);
+  BTCreate(&(br->but[BR_SELALL]), br->win, 0,0,BUTTW,BUTTH,
+	   "Select All",browfg,browbg,browhi,browlo);
+  BTCreate(&(br->but[BR_TEXTVIEW]), br->win, 0,0,BUTTW,BUTTH,
+	   "Text view",browfg,browbg,browhi,browlo);
+  BTCreate(&(br->but[BR_RECURSUP]), br->win, 0,0,BUTTW,BUTTH,
+	   "RecursUpd",browfg,browbg,browhi,browlo);
+  BTCreate(&(br->but[BR_QUIT]), br->win, 0,0,BUTTW,BUTTH,
+	   "Quit xv",browfg,browbg,browhi,browlo);
+  BTCreate(&(br->but[BR_CLOSE]), br->win, 0,0,BUTTW,BUTTH,
+	   "Close",browfg,browbg,browhi,browlo);
+  BTCreate(&(br->but[BR_CLIPBRD]), br->win, 0,0,BUTTW,BUTTH,
+	   "Clipboard",browfg,browbg,browhi,browlo);
+
+  XMapSubwindows(theDisp, br->win);
+
+  /* Create menu buttons (these DO create popup windows) */
+  MBCreate(&(br->dirMB), br->win, 0,0,100,19*dpiMult, NULL,NULL,0,
+	   browfg,browbg,browhi,browlo);
+
+  MBCreate(&(br->cmdMB), br->win, 0,0,160*dpiMult,19*dpiMult, "Misc. Commands",
+	   cmdMList, BR_NCMDS, browfg,browbg,browhi,browlo);
+
+  br->showhidden   = 0;
+  br->cmdMB.list[BR_HIDDEN]   = showHstr;
+
+  /* Size and position everything */
+  resizeBrowse(br, DEF_BROWWIDE, DEF_BROWHIGH);
+
+  XSelectInput(theDisp, br->win, ExposureMask | ButtonPressMask |
+	       KeyPressMask | StructureNotifyMask);
+
+  /* Create icon pixmaps on first browser window creation */
+  if (!browse_icons_created) {
+    /* Create built-in icon pixmaps (shared by all browsers) */
+    bfIcons[BF_FILE]=MakePix1(br->win,br_file_bits,br_file_width,br_file_height);
+    bfIcons[BF_DIR] =MakePix1(br->win,br_dir_bits, br_dir_width, br_dir_height);
+    bfIcons[BF_EXE] =MakePix1(br->win,br_exe_bits, br_exe_width, br_exe_height);
+    bfIcons[BF_CHR] =MakePix1(br->win,br_chr_bits, br_chr_width, br_chr_height);
+    bfIcons[BF_BLK] =MakePix1(br->win,br_blk_bits, br_blk_width, br_blk_height);
+    bfIcons[BF_SOCK]=MakePix1(br->win,br_sock_bits,br_sock_width,br_sock_height);
+    bfIcons[BF_FIFO]=MakePix1(br->win,br_fifo_bits,br_fifo_width,br_fifo_height);
+
+    bfIcons[BF_ERROR]   = MakePix1(br->win, br_error_bits,
+				 br_error_width,     br_error_height);
+
+    bfIcons[BF_UNKNOWN] = bfIcons[BF_FILE];
+
+    bfIcons[BF_COMPRESS] = MakePix1(br->win, br_cmpres_bits,
+				    br_cmpres_width, br_cmpres_height);
+    bfIcons[BF_BZIP2]    = MakePix1(br->win, br_bzip2_bits,
+				    br_bzip2_width, br_bzip2_height);
+
+    bfIcons[BF_BMP] =MakePix1(br->win,br_bmp_bits, br_bmp_width, br_bmp_height);
+    bfIcons[BF_FITS]=MakePix1(br->win,br_fits_bits,br_fits_width,br_fits_height);
+    bfIcons[BF_GIF] =MakePix1(br->win,br_gif_bits, br_gif_width, br_gif_height);
+    bfIcons[BF_IFF] =MakePix1(br->win,br_iff_bits, br_iff_width, br_iff_height);
+    bfIcons[BF_IRIS]=MakePix1(br->win,br_iris_bits,br_iris_width,br_iris_height);
+    bfIcons[BF_JFIF]=MakePix1(br->win,br_jfif_bits,br_jfif_width,br_jfif_height);
+    bfIcons[BF_JP2] =MakePix1(br->win,br_jp2_bits, br_jp2_width, br_jp2_height);
+    bfIcons[BF_JPC] =MakePix1(br->win,br_jpc_bits, br_jpc_width, br_jpc_height);
+    bfIcons[BF_MAG] =MakePix1(br->win,br_mag_bits, br_mag_width, br_mag_height);
+    bfIcons[BF_MAKI]=MakePix1(br->win,br_maki_bits,br_maki_width,br_maki_height);
+    bfIcons[BF_PBM] =MakePix1(br->win,br_pbm_bits, br_pbm_width, br_pbm_height);
+    bfIcons[BF_PCD] =MakePix1(br->win,br_pcd_bits, br_pcd_width, br_pcd_height);
+    bfIcons[BF_PCX] =MakePix1(br->win,br_pcx_bits, br_pcx_width, br_pcx_height);
+    bfIcons[BF_PDS] =MakePix1(br->win,br_pds_bits, br_pds_width, br_pds_height);
+    bfIcons[BF_PIC2]=MakePix1(br->win,br_pic2_bits,br_pic2_width,br_pic2_height);
+    bfIcons[BF_PIC] =MakePix1(br->win,br_pic_bits, br_pic_width, br_pic_height);
+    bfIcons[BF_PI]  =MakePix1(br->win,br_pi_bits,  br_pi_width,  br_pi_height);
+    bfIcons[BF_PM]  =MakePix1(br->win,br_pm_bits,  br_pm_width,  br_pm_height);
+    bfIcons[BF_PNG] =MakePix1(br->win,br_png_bits, br_png_width, br_png_height);
+    bfIcons[BF_PS]  =MakePix1(br->win,br_ps_bits,  br_ps_width,  br_ps_height);
+    bfIcons[BF_TGA] =MakePix1(br->win,br_tga_bits, br_tga_width, br_tga_height);
+    bfIcons[BF_TIFF]=MakePix1(br->win,br_tiff_bits,br_tiff_width,br_tiff_height);
+    bfIcons[BF_WEBP]=MakePix1(br->win,br_webp_bits,br_webp_width,br_webp_height);
+    bfIcons[BF_XBM] =MakePix1(br->win,br_xbm_bits, br_xbm_width, br_xbm_height);
+    bfIcons[BF_XPM] =MakePix1(br->win,br_xpm_bits, br_xpm_width, br_xpm_height);
+    bfIcons[BF_XWD] =MakePix1(br->win,br_xwd_bits, br_xwd_width, br_xwd_height);
+    bfIcons[BF_ZX]  =MakePix1(br->win,br_zx_bits,  br_zx_width,  br_zx_height);
+
+    bfIcons[BF_SUNRAS]  = MakePix1(br->win, br_sunras_bits,
+				   br_sunras_width, br_sunras_height);
+    bfIcons[BF_UTAHRLE] = MakePix1(br->win, br_utahrle_bits,
+				   br_utahrle_width, br_utahrle_height);
+    bfIcons[BF_MGCSFX]  = MakePix1(br->win, br_mgcsfx_bits,
+				   br_mgcsfx_width, br_mgcsfx_height);
+
+    /* Check that they all got built */
+    for (i=0; i<BF_MAX && bfIcons[i]; i++);
+    if (i<BF_MAX)
+      FatalError("unable to create all built-in icons for schnauzer");
+
+    trashPix = MakePix1(br->win, br_trash_bits, br_trash_width, br_trash_height);
+    if (!trashPix)
+      FatalError("unable to create all built-in icons for schnauzer");
+
+    /* Create cursors */
+    mcpix = MakePix1(rootW, filecurs_bits,  filecurs_width,  filecurs_height);
+    ccpix = MakePix1(rootW, fileccurs_bits, fileccurs_width, fileccurs_height);
+    dcpix = MakePix1(rootW, fdcurs_bits,    fdcurs_width,    fdcurs_height);
+    fcmpix= MakePix1(rootW, filecursm_bits, filecursm_width, filecursm_height);
+
+    if (mcpix && ccpix && fcmpix && dcpix) {
+      cursfg.red = cursfg.green = cursfg.blue = 0;
+      cursbg.red = cursbg.green = cursbg.blue = 0xffff;
+
+      movecurs = XCreatePixmapCursor(theDisp,mcpix,fcmpix,&cursfg,&cursbg,13,13);
+      copycurs = XCreatePixmapCursor(theDisp,ccpix,fcmpix,&cursfg,&cursbg,13,13);
+      delcurs  = XCreatePixmapCursor(theDisp,dcpix,fcmpix,&cursbg,&cursfg,13,13);
+      if (!movecurs || !copycurs || !delcurs)
+        FatalError("unable to create schnauzer cursors...");
+    }
+    else FatalError("unable to create schnauzer cursors...");
+
+    XFreePixmap(theDisp, mcpix);
+    XFreePixmap(theDisp, ccpix);
+    XFreePixmap(theDisp, dcpix);
+    XFreePixmap(theDisp, fcmpix);
+
+    browse_icons_created = 1;
+  }
 }
 
 
@@ -677,6 +692,9 @@ void OpenBrowse(void)
     if (!br->vis) break;
   }
   if (i==MAXBRWIN) return;  /* full up: shouldn't happen */
+
+  /* Create window for this browser if it doesn't exist yet (lazy creation) */
+  createBrowserWindow(br, i);
 
   anyBrowUp = 1;
   XMapRaised(theDisp, br->win);

@@ -206,6 +206,23 @@ static void printUTime(const char *str)
 
 
 
+/* Static state for deferred gamma window creation */
+static const char *saved_gam_geom = NULL;
+static double saved_gam = -1.0, saved_rgam = -1.0, saved_ggam = -1.0, saved_bgam = -1.0;
+static int saved_defpreset = 0;
+
+/***************************************************/
+void SaveGamParams(const char *geom, double gam, double rgam, double ggam, double bgam, int defpreset)
+{
+  /* Save parameters for lazy gamma window creation */
+  saved_gam_geom = geom;
+  saved_gam = gam;
+  saved_rgam = rgam;
+  saved_ggam = ggam;
+  saved_bgam = bgam;
+  saved_defpreset = defpreset;
+}
+
 /***************************************************/
 void CreateGam(const char *geom, double gam, double rgam, double ggam, double bgam, int defpreset)
 {
@@ -743,6 +760,14 @@ static void changedGam(void)
 /***************************************************/
 void GamBox(int vis)
 {
+  /* Create gamma window on first use (lazy creation) */
+  if (vis && gamW == None) {
+    CreateGam(saved_gam_geom, saved_gam, saved_rgam, saved_ggam, saved_bgam, saved_defpreset);
+    XSelectInput(theDisp, gamW, ExposureMask | ButtonPressMask | KeyPressMask
+		 | StructureNotifyMask
+		 | (cmapInGam ? ColormapChangeMask : 0));
+  }
+
   if (vis) XMapRaised(theDisp, gamW);
   else     XUnmapWindow(theDisp, gamW);
 
