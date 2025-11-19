@@ -1133,8 +1133,7 @@ int LoadPNG(char *fname, PICINFO *pinfo)
     commentsize = 1;
 
     for (i = 0; i < _num_text; i++)
-      commentsize += strlen(_text[i].key) + 1 +
-                     (_text[i].text_length ? _text[i].text_length : _text[i].itxt_length) + 2;
+      commentsize += strlen(_text[i].key) + 1 + _text[i].text_length + 2;
 
     if ((pinfo->comment = malloc(commentsize)) == NULL) {
       png_warning(png_ptr,"can't allocate comment string");

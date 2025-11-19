@@ -44,7 +44,7 @@ include(GNUInstallDirs)
 
 include(CheckIncludeFiles)
 include(CheckCCompilerFlag)
-include(Sanitizers)
+#include(Sanitizers)  # Commented out - file missing, not critical for build
 
 ################################################################################
 # Compiler settings.

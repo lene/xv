@@ -837,13 +837,29 @@ void MBCreate(MBUTT *mb, Window win, int x, int y, unsigned int w, unsigned int 
     mb->dim[i] = 0;
   }
 
-  /* create popup window (it gets mapped, pos'd and sized later) */
-  xswa.background_pixel = bg;
-  xswa.border_pixel     = fg;
+  /* Defer popup window creation until first use (lazy creation) to save X resources.
+   * Window will be created in MBTrack() when menu is actually clicked. */
+  mb->mwin = None;
+}
+
+
+/***********************************************/
+static void createMBPopupWindow(MBUTT *mb)
+{
+  /* Creates the popup menu window on first use (lazy creation).
+   * Called from MBTrack() when user first clicks the menu button. */
+
+  XSetWindowAttributes xswa;
+  unsigned long        xswamask;
+
+  if (mb->mwin != None) return;  /* Already created */
+
+  xswa.background_pixel = mb->bg;
+  xswa.border_pixel     = mb->fg;
   xswa.save_under       = True;
   xswamask = CWBackPixel | CWBorderPixel | CWSaveUnder;
 
-  mb->mwin = XCreateWindow(theDisp, mb->win, x, y, w, h,
+  mb->mwin = XCreateWindow(theDisp, mb->win, mb->x, mb->y, mb->w, mb->h,
 			   (u_int) 2, (int) dispDEEP, InputOutput,
 			   theVisual, xswamask, &xswa);
 
@@ -854,13 +870,18 @@ void MBCreate(MBUTT *mb, Window win, int x, int y, unsigned int w, unsigned int 
 }
 
 
+/***********************************************/
 void MBChange(MBUTT *mb, int x, int y, unsigned int w, unsigned int h)
 {
   mb->x = x;
   mb->y = y;
   mb->w = w;
   mb->h = h;
-  XMoveResizeWindow(theDisp, mb->mwin, x, y, w, h);
+
+  /* Only resize window if it's been created (lazy creation) */
+  if (mb->mwin != None) {
+    XMoveResizeWindow(theDisp, mb->mwin, x, y, w, h);
+  }
 }
 
 
@@ -1053,7 +1074,10 @@ int MBTrack(MBUTT *mb)
   if (mb->title && mwide > mb->w) mx -= ((mwide - mb->w)/2);
 
 
-  /* create/map window, and warp mouse if we had to move the window */
+  /* Create popup window on first use (lazy creation) */
+  createMBPopupWindow(mb);
+
+  /* map window, and warp mouse if we had to move the window */
   win = mb->mwin;
   XMoveResizeWindow(theDisp, win, mx, my, (u_int) mwide, (u_int) mhigh);
 

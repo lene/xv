@@ -1005,17 +1005,11 @@ int main(int argc, char **argv)
   browseCB.val = browseMode;
   savenormCB.val = savenorm;
 
-  /* create the gamma window */
-  CreateGam(gamgeom, (gamset) ? gamval : -1.0,
-	    (cgamset) ? rgamval : -1.0,
-	    (cgamset) ? ggamval : -1.0,
-	    (cgamset) ? bgamval : -1.0,
-	    preset);
-  XSelectInput(theDisp, gamW, ExposureMask | ButtonPressMask | KeyPressMask
-	       | StructureNotifyMask
-	       | (cmapInGam ? ColormapChangeMask : 0));
+  /* Phase 2: Gamma window now uses lazy creation - created on first use
+   * Parameters saved via SaveGamParams(), window created when GamBox(1) called
+   * or when user opens gamma dialog from menu. See GamBox() in xvgam.c */
 
-  GamBox(gmap);     /* map it (or not) */
+  if (gmap) GamBox(1);     /* open gamma window if requested via -gam flag */
 
 
 
@@ -1035,51 +1029,20 @@ int main(int argc, char **argv)
   if (cmtmap) OpenCommentText();
 
 
-  /* create the ps window */
-  CreatePSD(NULL);
-  XSetTransientForHint(theDisp, psW, dirW);
+  /* PostScript dialog is now created on-demand when saving to PS format
+   * (lazy creation) to reduce X window allocation.
+   * Initialize preview and compression settings even though dialog not created yet */
   encapsCB.val = preview;
   pscompCB.val = pscomp;
 
 
-#ifdef HAVE_JPEG
-  CreateJPEGW();
-  XSetTransientForHint(theDisp, jpegW, dirW);
-#endif
-
-#ifdef HAVE_JP2K
-  CreateJP2KW();
-  XSetTransientForHint(theDisp, jp2kW, dirW);
-#endif
-
-#ifdef HAVE_TIFF
-  CreateTIFFW();
-  XSetTransientForHint(theDisp, tiffW, dirW);
-#endif
-
-#ifdef HAVE_PNG
-  CreatePNGW();
-  XSetTransientForHint(theDisp, pngW, dirW);
-#endif
-
-#ifdef HAVE_WEBP
-  CreateWEBPW();
-  XSetTransientForHint(theDisp, webpW, dirW);
-#endif
+  /* Format-specific save dialogs are now created on-demand when saving
+   * in that format (lazy creation) to reduce X window allocation */
 
 #ifdef HAVE_PCD
+  /* PCD dialog still created at startup as it's used for loading, not saving */
   CreatePCDW();
   XSetTransientForHint(theDisp, pcdW, dirW);
-#endif
-
-#ifdef HAVE_PIC2
-  CreatePIC2W();
-  XSetTransientForHint(theDisp, pic2W, dirW);
-#endif
-
-#ifdef HAVE_MGCSFX
-  CreateMGCSFXW();
-  XSetTransientForHint(theDisp, mgcsfxW, dirW);
 #endif
 
   LoadFishCursors();

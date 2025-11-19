@@ -206,6 +206,23 @@ static void printUTime(const char *str)
 
 
 
+/* Static state for deferred gamma window creation */
+static const char *saved_gam_geom = NULL;
+static double saved_gam = -1.0, saved_rgam = -1.0, saved_ggam = -1.0, saved_bgam = -1.0;
+static int saved_defpreset = 0;
+
+/***************************************************/
+void SaveGamParams(const char *geom, double gam, double rgam, double ggam, double bgam, int defpreset)
+{
+  /* Save parameters for lazy gamma window creation */
+  saved_gam_geom = geom;
+  saved_gam = gam;
+  saved_rgam = rgam;
+  saved_ggam = ggam;
+  saved_bgam = bgam;
+  saved_defpreset = defpreset;
+}
+
 /***************************************************/
 void CreateGam(const char *geom, double gam, double rgam, double ggam, double bgam, int defpreset)
 {
@@ -743,6 +760,14 @@ static void changedGam(void)
 /***************************************************/
 void GamBox(int vis)
 {
+  /* Create gamma window on first use (lazy creation) */
+  if (vis && gamW == None) {
+    CreateGam(saved_gam_geom, saved_gam, saved_rgam, saved_ggam, saved_bgam, saved_defpreset);
+    XSelectInput(theDisp, gamW, ExposureMask | ButtonPressMask | KeyPressMask
+		 | StructureNotifyMask
+		 | (cmapInGam ? ColormapChangeMask : 0));
+  }
+
   if (vis) XMapRaised(theDisp, gamW);
   else     XUnmapWindow(theDisp, gamW);
 
@@ -830,29 +855,32 @@ void NewCMap(void)
 
   int i;
 
-  XClearArea(theDisp, cmapF, CMAPX, CMAPY, CMAPW+1, CMAPH+1, False);
-  for (i=0; i<256; i++) cellgroup[i] = 0;
-  curgroup = maxgroup = 0;
+  /* Only update UI if gamma window has been created (lazy creation) */
+  if (gamW != None) {
+    XClearArea(theDisp, cmapF, CMAPX, CMAPY, CMAPW+1, CMAPH+1, False);
+    for (i=0; i<256; i++) cellgroup[i] = 0;
+    curgroup = maxgroup = 0;
 
-  BTSetActive(&gbut[G_BCOLUNDO],0);
+    BTSetActive(&gbut[G_BCOLUNDO],0);
 
-  if (resetCB.val) {            /* auto-reset gamma controls */
-    i = autoCB.val;
-    if (i) autoCB.val = 0;      /* must NOT apply changes! */
-    gamstate2ctrls(defLoadState);
-    autoCB.val = i;
+    if (resetCB.val) {            /* auto-reset gamma controls */
+      i = autoCB.val;
+      if (i) autoCB.val = 0;      /* must NOT apply changes! */
+      gamstate2ctrls(defLoadState);
+      autoCB.val = i;
+    }
+
+    /* disable/enable things if we're in PIC24 or PIC8 mode */
+    BTSetActive(&gbut[G_BCOLREV], (picType == PIC8) ? 1 : 0);
+    BTSetActive(&gbut[G_BHSVRGB], (picType == PIC8) ? 1 : 0);
+    BTSetActive(&gbut[G_BMONO],   (picType == PIC8) ? 1 : 0);
+    BTSetActive(&gbut[G_BRV],     (picType == PIC8) ? 1 : 0);
+    BTSetActive(&gbut[G_BRNDCOL], (picType == PIC8) ? 1 : 0);
+
+    DSetActive(&rhDial, (picType == PIC8) ? 1 : 0);
+    DSetActive(&gsDial, (picType == PIC8) ? 1 : 0);
+    DSetActive(&bvDial, (picType == PIC8) ? 1 : 0);
   }
-
-  /* disable/enable things if we're in PIC24 or PIC8 mode */
-  BTSetActive(&gbut[G_BCOLREV], (picType == PIC8) ? 1 : 0);
-  BTSetActive(&gbut[G_BHSVRGB], (picType == PIC8) ? 1 : 0);
-  BTSetActive(&gbut[G_BMONO],   (picType == PIC8) ? 1 : 0);
-  BTSetActive(&gbut[G_BRV],     (picType == PIC8) ? 1 : 0);
-  BTSetActive(&gbut[G_BRNDCOL], (picType == PIC8) ? 1 : 0);
-
-  DSetActive(&rhDial, (picType == PIC8) ? 1 : 0);
-  DSetActive(&gsDial, (picType == PIC8) ? 1 : 0);
-  DSetActive(&bvDial, (picType == PIC8) ? 1 : 0);
 }
 
 
@@ -860,6 +888,9 @@ void NewCMap(void)
 void RedrawCMap(void)
 {
   int i;
+
+  /* Only redraw if gamma window has been created (lazy creation) */
+  if (gamW == None) return;
 
   CBSetActive(&dragCB, (allocMode == AM_READWRITE));
 
@@ -903,6 +934,9 @@ void RedrawCMap(void)
 static void selectCell(int cellno, int sel)
 {
   int x,y;
+
+  /* Guard against calling before gamma window created */
+  if (gamW == None) return;
 
   if (cellno >= numcols) return;
 

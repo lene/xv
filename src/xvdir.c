@@ -1600,6 +1600,10 @@ int DoSave(void)
 
   if (fmt == F_PS) {   /* PostScript */
     PSSaveParams(fullname, col);
+    if (psW == None) {  /* Create dialog on first use (lazy creation) */
+      CreatePSD(NULL);
+      XSetTransientForHint(theDisp, psW, dirW);
+    }
     PSDialog(1);                   /* open PSDialog box */
     dbut[S_BOK].lit = 0;  BTRedraw(&dbut[S_BOK]);
     return 0;                      /* always 'succeeds' */
@@ -1608,6 +1612,10 @@ int DoSave(void)
 #ifdef HAVE_JPEG
   else if (fmt == F_JPEG) {   /* JPEG */
     JPEGSaveParams(fullname, col);
+    if (jpegW == None) {  /* Create dialog on first use (lazy creation) */
+      CreateJPEGW();
+      XSetTransientForHint(theDisp, jpegW, dirW);
+    }
     JPEGDialog(1);                 /* open JPEGDialog box */
     dbut[S_BOK].lit = 0;  BTRedraw(&dbut[S_BOK]);
     return 0;                      /* always 'succeeds' */
@@ -1617,6 +1625,10 @@ int DoSave(void)
 #ifdef HAVE_JP2K
   else if (fmt == F_JPC || fmt == F_JP2) {   /* JPEG 2000 */
     JP2KSaveParams(fmt, fullname, col);
+    if (jp2kW == None) {  /* Create dialog on first use (lazy creation) */
+      CreateJP2KW();
+      XSetTransientForHint(theDisp, jp2kW, dirW);
+    }
     JP2KDialog(1);                 /* open JP2KDialog box */
     dbut[S_BOK].lit = 0;  BTRedraw(&dbut[S_BOK]);
     return 0;                      /* always 'succeeds' */
@@ -1626,6 +1638,10 @@ int DoSave(void)
 #ifdef HAVE_TIFF
   else if (fmt == F_TIFF) {   /* TIFF */
     TIFFSaveParams(fullname, col);
+    if (tiffW == None) {  /* Create dialog on first use (lazy creation) */
+      CreateTIFFW();
+      XSetTransientForHint(theDisp, tiffW, dirW);
+    }
     TIFFDialog(1);                 /* open TIFF Dialog box */
     dbut[S_BOK].lit = 0;  BTRedraw(&dbut[S_BOK]);
     return 0;                      /* always 'succeeds' */
@@ -1635,6 +1651,10 @@ int DoSave(void)
 #ifdef HAVE_PNG
   else if (fmt == F_PNG) {   /* PNG */
     PNGSaveParams(fullname, col);
+    if (pngW == None) {  /* Create dialog on first use (lazy creation) */
+      CreatePNGW();
+      XSetTransientForHint(theDisp, pngW, dirW);
+    }
     PNGDialog(1);                  /* open PNG Dialog box */
     dbut[S_BOK].lit = 0;  BTRedraw(&dbut[S_BOK]);
     return 0;                      /* always 'succeeds' */
@@ -1644,6 +1664,10 @@ int DoSave(void)
 #ifdef HAVE_WEBP
   else if (fmt == F_WEBP) {   /* WEBP */
     WEBPSaveParams(fullname, col);
+    if (webpW == None) {  /* Create dialog on first use (lazy creation) */
+      CreateWEBPW();
+      XSetTransientForHint(theDisp, webpW, dirW);
+    }
     WEBPDialog(1);                  /* open WEBP Dialog box */
     dbut[S_BOK].lit = 0;  BTRedraw(&dbut[S_BOK]);
     return 0;                      /* always 'succeeds' */
@@ -1654,6 +1678,10 @@ int DoSave(void)
   else if (fmt == F_PIC2) {   /* PIC2 */
     if (PIC2SaveParams(fullname, col) < 0)
 	return 0;
+    if (pic2W == None) {  /* Create dialog on first use (lazy creation) */
+      CreatePIC2W();
+      XSetTransientForHint(theDisp, pic2W, dirW);
+    }
     PIC2Dialog(1);                   /* open PIC2 Dialog box */
     dbut[S_BOK].lit = 0;  BTRedraw(&dbut[S_BOK]);
     return 0;                      /* always 'succeeds' */
@@ -1664,6 +1692,10 @@ int DoSave(void)
   else if (fmt == F_MGCSFX) {   /* MGCSFX */
     if (MGCSFXSaveParams(fullname, col) < 0)
 	return 0;
+    if (mgcsfxW == None) {  /* Create dialog on first use (lazy creation) */
+      CreateMGCSFXW();
+      XSetTransientForHint(theDisp, mgcsfxW, dirW);
+    }
     MGCSFXDialog(1);                   /* open MGCSFX Dialog box */
     dbut[S_BOK].lit = 0;  BTRedraw(&dbut[S_BOK]);
     return 0;                      /* always 'succeeds' */
