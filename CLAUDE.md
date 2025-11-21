@@ -57,6 +57,42 @@ Optional libraries (based on enabled features):
 - libwebp (for WebP)
 - libxrandr (for XRandR support)
 
+## Debian Packaging
+
+### Building a Debian Package
+
+```bash
+# Install build dependencies
+sudo apt-get install build-essential debhelper devscripts cmake pkg-config \
+    libx11-dev libxt-dev libtiff-dev libjpeg-dev libpng-dev libxrandr-dev libwebp-dev
+
+# Build the package
+dpkg-buildpackage -us -uc -b
+
+# Install the package
+sudo dpkg -i ../xv_*.deb
+```
+
+### Package Structure
+
+```
+debian/
+├── changelog      # Version history
+├── control        # Package metadata and dependencies
+├── copyright      # License information
+├── rules          # CMake-based build rules
+├── tests/         # DEP-8 autopkgtest tests
+│   ├── control
+│   └── test-installed-artifacts.sh
+└── watch          # Upstream version tracking
+```
+
+### Distribution
+
+- **Target**: Ubuntu 24.04 (Noble Numbat)
+- **Upstream**: https://github.com/jasper-software/xv
+- **Version**: 6.0.4-2~noble
+
 ## Testing
 
 ### Test Suite Location

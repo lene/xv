@@ -1,0 +1,11 @@
+Format: http://www.debian.org/doc/packaging-manuals/copyright-format/1.0/
+Upstream-Name: xv
+Upstream-Contact: Michael Adams <mdadams@ece.uvic.ca>
+Source: https://github.com/jasper-software/xv
+
+Files: *
+Copyright: Copyright (C) 1989-1994 John Bradley
+           Copyright (C) 2020-2025 Michael Adams and contributors
+License: XV License (see COPYRIGHT file)
+ XV is shareware for personal use only. Commercial use requires
+ licensing from the author. See COPYRIGHT file for full details.

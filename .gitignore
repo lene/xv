@@ -21,3 +21,13 @@ xvpictoppm
 
 # build directories
 build/
+
+# Debian packaging artifacts
+*.deb
+*.dsc
+*.tar.*
+*.changes
+*.buildinfo
+debian/files
+debian/.debhelper/
+obj-*/

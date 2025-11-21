@@ -1,0 +1,33 @@
+Source: xv
+Section: graphics
+Priority: optional
+Maintainer: Lene Preuss <lene.preuss@gmail.com>
+Standards-Version: 4.6.2
+Build-Depends:
+    debhelper (>= 13),
+    cmake,
+    pkg-config,
+    libx11-dev,
+    libxt-dev,
+    libtiff-dev,
+    libjpeg-dev,
+    libpng-dev,
+    libxrandr-dev,
+    libwebp-dev
+Vcs-Git: https://github.com/lene/xv.git
+Vcs-Browser: https://github.com/lene/xv
+Homepage: https://github.com/jasper-software/xv
+Rules-Requires-Root: no
+
+Package: xv
+Architecture: any
+Depends:
+    ${shlibs:Depends},
+    ${misc:Depends}
+Description: Classic X11 image viewer (jasper-software v6.0.4)
+ XV is a classic interactive image manipulation program for the X Window System.
+ It can display and edit images in many formats including GIF, JPEG, TIFF, PNG,
+ BMP, XPM, and more.
+ .
+ This package is based on the actively-maintained jasper-software/xv fork which
+ includes modern library support, bug fixes, and HiDPI improvements.

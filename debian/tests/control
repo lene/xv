@@ -1,0 +1,12 @@
+## DEP-8 continuous integration tests.
+
+# Basic sanity check - verify xv binary exists and runs
+Test-Command: xv -help 2>&1 | head -1
+Depends: @
+Restrictions: isolation-container, superficial
+Features: test-name=test-version
+
+# Test that xv can load an image in headless mode
+Tests: test-installed-artifacts.sh
+Depends: @, xvfb, imagemagick
+Restrictions: isolation-container
